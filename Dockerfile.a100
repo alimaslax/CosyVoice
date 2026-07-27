@@ -16,11 +16,11 @@ RUN apt-get update \
       python3.10 python3.10-dev python3-pip \
       build-essential git ffmpeg sox libsox-dev \
  && rm -rf /var/lib/apt/lists/* \
- && python3.10 -m pip install --upgrade pip
+ && python3.10 -m pip install --upgrade pip 'setuptools<81' wheel
 
 WORKDIR /workspace/CosyVoice
 COPY requirements.txt ./
-RUN python3.10 -m pip install -r requirements.txt \
+RUN python3.10 -m pip install --no-build-isolation -r requirements.txt \
  && python3.10 -m pip install 'huggingface_hub[cli]'
 
 COPY . .
