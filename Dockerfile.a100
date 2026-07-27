@@ -20,7 +20,8 @@ RUN apt-get update \
 
 WORKDIR /workspace/CosyVoice
 COPY requirements.txt ./
-RUN python3.10 -m pip install --no-build-isolation -r requirements.txt \
+RUN printf 'setuptools<81\n' > /tmp/build-constraints.txt \
+ && PIP_CONSTRAINT=/tmp/build-constraints.txt python3.10 -m pip install -r requirements.txt \
  && python3.10 -m pip install 'huggingface_hub[cli]'
 
 COPY . .
