@@ -16,7 +16,7 @@ RUN apt-get update \
       python3.10 python3.10-dev python3-pip \
       build-essential git ffmpeg sox libsox-dev \
  && rm -rf /var/lib/apt/lists/* \
- && python3.10 -m pip install --upgrade pip 'setuptools<81' wheel
+ && python3.10 -m pip install --upgrade pip 'setuptools<81' wheel numpy==1.26.4
 
 WORKDIR /workspace/CosyVoice
 COPY requirements.txt ./
