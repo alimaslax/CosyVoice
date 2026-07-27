@@ -1,0 +1,30 @@
+# A100 training/inference image. NVIDIA drivers stay on the Ubuntu host; they
+# cannot be installed safely inside a container because they include a kernel
+# module. The NVIDIA Container Toolkit mounts the host driver at runtime.
+FROM nvidia/cuda:12.4.1-cudnn-devel-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    HF_HOME=/workspace/.cache/huggingface \
+    PYTHONPATH=/workspace/CosyVoice:/workspace/CosyVoice/third_party/Matcha-TTS
+
+# No dist-upgrade/security-upgrade: install only build and audio dependencies
+# that CosyVoice needs. CUDA libraries come from the base image.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends \
+      python3.10 python3.10-dev python3-pip \
+      build-essential git ffmpeg sox libsox-dev \
+ && rm -rf /var/lib/apt/lists/* \
+ && python3.10 -m pip install --upgrade pip
+
+WORKDIR /workspace/CosyVoice
+COPY requirements.txt ./
+RUN python3.10 -m pip install -r requirements.txt \
+ && python3.10 -m pip install 'huggingface_hub[cli]'
+
+COPY . .
+
+# Supply HF_TOKEN in .env at docker run time. It is deliberately not copied
+# into the image, so credentials never become an image layer.
+CMD ["/bin/bash"]
