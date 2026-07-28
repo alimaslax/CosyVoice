@@ -10,6 +10,7 @@ DATA_DIR="${WORK_DIR}/so-audio-cosyvoice3"
 MODEL_DIR="${WORK_DIR}/models/Fun-CosyVoice3-0.5B-2512"
 RUN_DIR="${WORK_DIR}/somali-full-finetune"
 CHECKPOINT_STEPS="${CHECKPOINT_STEPS:-250}"
+LLM_CHECKPOINT="${LLM_CHECKPOINT:-${MODEL_DIR}/llm.pt}"
 
 if [[ -z "${HF_TOKEN:-}" ]]; then
   echo "HF_TOKEN is required at runtime." >&2
@@ -47,6 +48,9 @@ run_full_finetune() {
   local checkpoint="$2"
   local model_dir="${RUN_DIR}/${model}"
   local tensorboard_dir="${RUN_DIR}/tensorboard/${model}"
+  if [[ "${model}" == "llm" && -n "${LLM_TENSORBOARD_DIR:-}" ]]; then
+    tensorboard_dir="${LLM_TENSORBOARD_DIR}"
+  fi
 
   # Passing --model selects only this module. train.py nulls llm/flow/HiFT/
   # HiFi-GAN except the selected model, so no vocoder parameters are updated.
@@ -70,7 +74,7 @@ run_full_finetune() {
 }
 
 echo "Starting full LLM fine-tune; checkpoints every ${CHECKPOINT_STEPS} optimizer steps."
-run_full_finetune llm "${MODEL_DIR}/llm.pt"
+run_full_finetune llm "${LLM_CHECKPOINT}"
 
 echo "Starting full Flow fine-tune; checkpoints every ${CHECKPOINT_STEPS} optimizer steps."
 run_full_finetune flow "${MODEL_DIR}/flow.pt"
