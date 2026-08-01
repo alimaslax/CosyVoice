@@ -8,3 +8,4 @@ data
 *.tar
 *.parquet
 .env
+work

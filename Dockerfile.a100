@@ -20,8 +20,12 @@ RUN apt-get update \
 
 WORKDIR /workspace/CosyVoice
 COPY requirements.txt ./
+# TensorRT is inference-only for this trainer.  Keep Whisper: the CosyVoice
+# speech-token extractor imports it.  The non-isolated install below supplies
+# its legacy pkg_resources build dependency.
+RUN sed -i '/^tensorrt/d' requirements.txt
 RUN printf 'setuptools<81\n' > /tmp/build-constraints.txt \
- && PIP_CONSTRAINT=/tmp/build-constraints.txt python3.10 -m pip install -r requirements.txt \
+ && PIP_CONSTRAINT=/tmp/build-constraints.txt python3.10 -m pip install --no-build-isolation -r requirements.txt \
  && python3.10 -m pip install 'huggingface_hub[cli]'
 
 COPY . .

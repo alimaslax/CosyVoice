@@ -75,12 +75,18 @@ class Executor:
                 info_dict = update_parameter_and_lr(model, optimizer, scheduler, scaler, info_dict)
                 log_per_step(writer, info_dict)
                 # NOTE specify save_per_step in cosyvoice.yaml if you want to enable step save
-                if info_dict['save_per_step'] > 0 and (self.step + 1) % info_dict['save_per_step'] == 0 and \
-                   (batch_idx + 1) % info_dict["accum_grad"] == 0:
+                is_optimizer_step = (batch_idx + 1) % info_dict["accum_grad"] == 0
+                if info_dict['save_per_step'] > 0 and (self.step + 1) % info_dict['save_per_step'] == 0 and is_optimizer_step:
                     dist.barrier()
                     self.cv(model, cv_data_loader, writer, info_dict, on_batch_end=False)
                     model.train()
-                if (batch_idx + 1) % info_dict["accum_grad"] == 0:
+                elif info_dict.get('cv_per_step', -1) > 0 and (self.step + 1) % info_dict['cv_per_step'] == 0 and is_optimizer_step:
+                    # Validation-only pass: emit CV scalars without creating an
+                    # additional checkpoint between the requested save steps.
+                    dist.barrier()
+                    self.cv(model, cv_data_loader, writer, info_dict, on_batch_end=False, save_checkpoint=False)
+                    model.train()
+                if is_optimizer_step:
                     self.step += 1
         dist.barrier()
         self.cv(model, cv_data_loader, writer, info_dict, on_batch_end=True)
@@ -133,18 +139,22 @@ class Executor:
                 optimizer_d.zero_grad()
                 log_per_step(writer, info_dict)
                 # NOTE specify save_per_step in cosyvoice.yaml if you want to enable step save
-                if info_dict['save_per_step'] > 0 and (self.step + 1) % info_dict['save_per_step'] == 0 and \
-                   (batch_idx + 1) % info_dict["accum_grad"] == 0:
+                is_optimizer_step = (batch_idx + 1) % info_dict["accum_grad"] == 0
+                if info_dict['save_per_step'] > 0 and (self.step + 1) % info_dict['save_per_step'] == 0 and is_optimizer_step:
                     dist.barrier()
                     self.cv(model, cv_data_loader, writer, info_dict, on_batch_end=False)
                     model.train()
-                if (batch_idx + 1) % info_dict["accum_grad"] == 0:
+                elif info_dict.get('cv_per_step', -1) > 0 and (self.step + 1) % info_dict['cv_per_step'] == 0 and is_optimizer_step:
+                    dist.barrier()
+                    self.cv(model, cv_data_loader, writer, info_dict, on_batch_end=False, save_checkpoint=False)
+                    model.train()
+                if is_optimizer_step:
                     self.step += 1
         dist.barrier()
         self.cv(model, cv_data_loader, writer, info_dict, on_batch_end=True)
 
     @torch.inference_mode()
-    def cv(self, model, cv_data_loader, writer, info_dict, on_batch_end=True):
+    def cv(self, model, cv_data_loader, writer, info_dict, on_batch_end=True, save_checkpoint=True):
         ''' Cross validation on
         '''
         logging.info('Epoch {} Step {} on_batch_end {} CV rank {}'.format(self.epoch, self.step + 1, on_batch_end, self.rank))
@@ -172,5 +182,6 @@ class Executor:
             total_loss_dict[k] = sum(v) / total_num_utts
         info_dict['loss_dict'] = total_loss_dict
         log_per_save(writer, info_dict)
-        model_name = 'epoch_{}_whole'.format(self.epoch) if on_batch_end else 'epoch_{}_step_{}'.format(self.epoch, self.step + 1)
-        save_model(model, model_name, info_dict)
+        if save_checkpoint:
+            model_name = 'epoch_{}_whole'.format(self.epoch) if on_batch_end else 'epoch_{}_step_{}'.format(self.epoch, self.step + 1)
+            save_model(model, model_name, info_dict)

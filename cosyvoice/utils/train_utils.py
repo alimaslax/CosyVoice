@@ -16,6 +16,7 @@
 
 import logging
 import os
+import atexit
 import torch
 import json
 import re
@@ -31,6 +32,32 @@ from torch.utils.data import DataLoader
 from torch.nn.utils import clip_grad_norm_
 
 from deepspeed.runtime.zero.stage_1_and_2 import estimate_zero2_model_states_mem_needs_all_live
+
+
+_wandb_run = None
+
+
+def _log_wandb_scalars(namespace, info_dict, include_grad_norm=False):
+    """Send rank-zero CosyVoice scalars directly to W&B.
+
+    W&B's TensorBoard discovery can lag or miss event files in a container.
+    Direct logging keeps the dashboard current during a live run while the
+    SummaryWriter remains the local source of record.
+    """
+    if _wandb_run is None:
+        return
+
+    step = info_dict['step'] + 1
+    metrics = {
+        'global_step': step,
+        '{}/epoch'.format(namespace): info_dict['epoch'],
+        '{}/lr'.format(namespace): info_dict['lr'],
+    }
+    if include_grad_norm:
+        metrics['{}/grad_norm'.format(namespace)] = info_dict['grad_norm']
+    for key, value in info_dict['loss_dict'].items():
+        metrics['{}/{}'.format(namespace, key)] = value
+    _wandb_run.log(metrics, step=step)
 
 from cosyvoice.dataset.dataset import Dataset
 from cosyvoice.utils.scheduler import WarmupLR, NoamHoldAnnealing, ConstantLR
@@ -185,10 +212,32 @@ def init_optimizer_and_scheduler(args, configs, model, gan):
 
 
 def init_summarywriter(args):
+    global _wandb_run
     writer = None
     if int(os.environ.get('RANK', 0)) == 0:
         os.makedirs(args.model_dir, exist_ok=True)
         writer = SummaryWriter(args.tensorboard_dir)
+        # W&B mirrors the existing TensorBoard scalars when explicitly
+        # configured. Training remains fully functional without W&B.
+        if os.environ.get('WANDB_API_KEY'):
+            try:
+                import wandb
+                init_kwargs = {
+                    'project': os.environ.get('WANDB_PROJECT', 'cosyvoice-somali'),
+                    'name': os.environ.get('WANDB_RUN_NAME'),
+                    'dir': args.model_dir,
+                    'resume': 'allow',
+                }
+                if os.environ.get('WANDB_ENTITY'):
+                    init_kwargs['entity'] = os.environ['WANDB_ENTITY']
+                _wandb_run = wandb.init(**init_kwargs)
+                wandb.define_metric('global_step')
+                wandb.define_metric('train/*', step_metric='global_step')
+                wandb.define_metric('validation/*', step_metric='global_step')
+                atexit.register(wandb.finish)
+                logging.info('W&B run initialized for direct scalar logging')
+            except Exception:
+                logging.exception('W&B initialization failed; continuing with TensorBoard only')
     return writer
 
 
@@ -336,6 +385,8 @@ def log_per_step(writer, info_dict):
                 writer.add_scalar('{}/{}'.format(tag, k), info_dict[k], step + 1)
             for k, v in loss_dict.items():
                 writer.add_scalar('{}/{}'.format(tag, k), v, step + 1)
+            _log_wandb_scalars('train' if tag == 'TRAIN' else tag.lower(), info_dict,
+                               include_grad_norm=(tag == 'TRAIN'))
 
     # TRAIN & CV, Shell log (stdout)
     if (info_dict['batch_idx'] + 1) % info_dict['log_interval'] == 0:
@@ -365,3 +416,4 @@ def log_per_save(writer, info_dict):
             writer.add_scalar('{}/{}'.format(tag, k), info_dict[k], step + 1)
         for k, v in loss_dict.items():
             writer.add_scalar('{}/{}'.format(tag, k), v, step + 1)
+        _log_wandb_scalars('validation' if tag == 'CV' else tag.lower(), info_dict)
