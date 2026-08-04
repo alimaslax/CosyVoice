@@ -14,6 +14,9 @@ RUN_DIR="${WORK_DIR}/${RUN_NAME}"
 CHECKPOINT_STEPS="${CHECKPOINT_STEPS:-3000}"
 CV_STEPS="${CV_STEPS:-3000}"
 ARCHIVE_KEEP_LOCAL="${ARCHIVE_KEEP_LOCAL:-16}"
+# Archive settled checkpoints to Hugging Face by default. Set false only when
+# a local-only run is explicitly wanted.
+ARCHIVE_TO_HF="${ARCHIVE_TO_HF:-true}"
 # WarmupLR reaches LEARNING_RATE at WARMUP_STEPS, then decays proportionally
 # to 1/sqrt(step). This is deliberately lower and non-constant after the
 # previous constant-1e-5 run overfit its validation split.
@@ -90,15 +93,20 @@ elif (( MAX_EPOCH < MIN_MAX_EPOCH )); then
   MAX_EPOCH="${MIN_MAX_EPOCH}"
 fi
 
-# Archive each settled checkpoint to Hugging Face and retain only the latest
-# ARCHIVE_KEEP_LOCAL checkpoints per local model directory after upload.
-python3 scripts/archive_cosyvoice_checkpoints.py \
-  --watch "${RUN_DIR}" --repo-id "${DATASET_REPO}" --run-name "${RUN_NAME}" \
-  --keep-local "${ARCHIVE_KEEP_LOCAL}" &
-ARCHIVER_PID=$!
+# Archive only when explicitly enabled. The default is local checkpoints,
+# which are pulled to the Mac through SSH by the caller.
+ARCHIVER_PID=""
+if [[ "${ARCHIVE_TO_HF}" == "true" ]]; then
+  python3 scripts/archive_cosyvoice_checkpoints.py \
+    --watch "${RUN_DIR}" --repo-id "${DATASET_REPO}" --run-name "${RUN_NAME}" \
+    --keep-local "${ARCHIVE_KEEP_LOCAL}" &
+  ARCHIVER_PID=$!
+fi
 cleanup() {
-  kill "${ARCHIVER_PID}" 2>/dev/null || true
-  wait "${ARCHIVER_PID}" 2>/dev/null || true
+  if [[ -n "${ARCHIVER_PID}" ]]; then
+    kill "${ARCHIVER_PID}" 2>/dev/null || true
+    wait "${ARCHIVER_PID}" 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT INT TERM
 

@@ -23,7 +23,7 @@ import torchaudio
 from torch.nn.utils.rnn import pad_sequence
 import torch.nn.functional as F
 import pyworld as pw
-from cosyvoice.utils.onnx import embedding_extractor, online_feature
+from cosyvoice.utils.onnx import embedding_extractor
 
 AUDIO_FORMAT_SETS = {'flac', 'mp3', 'm4a', 'ogg', 'opus', 'wav', 'wma'}
 
@@ -94,9 +94,13 @@ def filter(data,
             continue
         if len(sample['text_token']) > token_max_length:
             continue
-        if online_feature is False and len(sample['speech_token']) == 0:
+        # A present speech_token field is consumed directly by the model even
+        # when online feature extraction is enabled. Drop present-but-empty
+        # tokens here; otherwise Flow receives a zero-length condition and
+        # fails during validation.
+        if 'speech_token' in sample and len(sample['speech_token']) == 0:
             continue
-        if online_feature is False and 'reject_speech_token' in sample and len(sample['reject_speech_token']) == 0:
+        if 'reject_speech_token' in sample and len(sample['reject_speech_token']) == 0:
             continue
         if num_frames != 0:
             if len(sample['text_token']) / num_frames < min_output_input_ratio:

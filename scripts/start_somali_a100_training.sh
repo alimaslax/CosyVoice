@@ -38,6 +38,7 @@ exec docker run --rm --name "cosyvoice-${RUN_NAME}" --gpus all \
   -e WANDB_RUN_NAME="${WANDB_RUN_NAME:-${RUN_NAME}}" \
   -e ADDITIONAL_EPOCHS="${ADDITIONAL_EPOCHS:-6}" \
   -e MAX_EPOCH="${MAX_EPOCH:-}" \
+  -e ARCHIVE_TO_HF="${ARCHIVE_TO_HF:-true}" \
   -e WORK_DIR=/workspace/work \
   -e LLM_CHECKPOINT="${LLM_CHECKPOINT_CONTAINER}" \
   -e FLOW_CHECKPOINT="${FLOW_CHECKPOINT_CONTAINER}" \
