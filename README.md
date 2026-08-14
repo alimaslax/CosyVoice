@@ -108,6 +108,22 @@
     sudo yum install sox sox-devel
     ```
 
+### macOS (Apple Silicon)
+
+The pinned `openai-whisper==20231117` package uses `pkg_resources` while
+building. Current pip build isolation installs a setuptools version that no
+longer provides it, so install Whisper once without build isolation before
+installing the rest of the requirements:
+
+``` sh
+conda create -n cosy-voice -y python=3.10
+conda activate cosy-voice
+python -m pip install 'setuptools<81'
+python -m pip install --no-build-isolation openai-whisper==20231117
+python -m pip install -r requirements.txt
+brew install ffmpeg
+```
+
 ### Model download
 
 We strongly recommend that you download our pretrained `Fun-CosyVoice3-0.5B` `CosyVoice2-0.5B` `CosyVoice-300M` `CosyVoice-300M-SFT` `CosyVoice-300M-Instruct` model and `CosyVoice-ttsfrd` resource.
