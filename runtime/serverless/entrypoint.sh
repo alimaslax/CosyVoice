@@ -10,6 +10,13 @@ export PYTHONPATH="/app:/app/third_party/Matcha-TTS:${PYTHONPATH:-}"
 export TOKENIZERS_PARALLELISM=false
 mkdir -p "${NUMBA_CACHE_DIR}" "${MPLCONFIGDIR}"
 
+# Runpod's console "start command" is passed as Docker command arguments
+# after this image's ENTRYPOINT.  Honor it before bootstrapping so a queue
+# endpoint can re-enter this script with RUNPOD_QUEUE_MODE=1.
+if [[ "$#" -gt 0 ]]; then
+  exec "$@"
+fi
+
 echo "[somali-entrypoint] starting model-cache bootstrap" >&2
 python /app/runtime/serverless/bootstrap_model.py
 if [[ "${RUNPOD_QUEUE_MODE:-0}" == "1" ]]; then
