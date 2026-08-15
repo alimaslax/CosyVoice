@@ -3,6 +3,7 @@
 import asyncio
 import io
 import os
+import time
 from contextlib import asynccontextmanager
 
 import torch
@@ -17,6 +18,10 @@ from cosyvoice.cli.somali_pace import PACE_PRESETS, get_prompt_path
 
 MODEL_DIR = os.environ.get('MODEL_DIR', '/data/models/somali')
 state = {'model': None, 'lock': asyncio.Lock()}
+
+
+def log(message: str) -> None:
+    print('[somali-api {}] {}'.format(time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()), message), flush=True)
 
 
 class SynthesisRequest(BaseModel):
@@ -38,9 +43,18 @@ def synthesize(model, text: str, pace: str) -> bytes:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     if not torch.cuda.is_available():
+        log('fatal: CUDA GPU is unavailable')
         raise RuntimeError('A CUDA GPU is required for this service')
-    state['model'] = AutoModel(model_dir=MODEL_DIR, fp16=True)
+    log('CUDA available: {}; loading FP16 model from {}'.format(torch.cuda.get_device_name(0), MODEL_DIR))
+    started = time.monotonic()
+    try:
+        state['model'] = AutoModel(model_dir=MODEL_DIR, fp16=True)
+    except Exception as error:
+        log('fatal model-load error after {:.1f}s: {!r}'.format(time.monotonic() - started, error))
+        raise
+    log('model loaded in {:.1f}s; service is ready'.format(time.monotonic() - started))
     yield
+    log('service shutdown requested')
     state['model'] = None
 
 
