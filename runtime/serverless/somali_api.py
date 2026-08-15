@@ -68,6 +68,18 @@ def health():
     return {'status': 'ready', 'paces': list(PACE_PRESETS)}
 
 
+@app.get('/ping', include_in_schema=False)
+def ping():
+    """Runpod load-balancer readiness probe.
+
+    A 204 keeps a newly started worker out of traffic while the model downloads
+    and loads; Runpod begins routing only after this endpoint returns 200.
+    """
+    if state['model'] is None:
+        return Response(status_code=204)
+    return Response(status_code=200)
+
+
 @app.post('/synthesize', responses={200: {'content': {'audio/wav': {}}}})
 async def synthesize_endpoint(request: SynthesisRequest):
     pace = request.pace.lower()

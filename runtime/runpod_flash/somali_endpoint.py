@@ -6,7 +6,7 @@ from runpod_flash import Endpoint, GpuGroup
 from runpod_flash.core.resources.template import PodTemplate
 
 
-IMAGE = "vccr.io/086368d3-195a-40fb-ac58-ef40f674c8b3/cosyvoice-somali:0.1.6"
+IMAGE = "ghcr.io/alimaslax/cosyvoice-somali:0.1.7"
 MODEL_REPO = "lewenberg/somali-punctuated-paced-20260802"
 
 
@@ -17,9 +17,19 @@ def required_env(name: str) -> str:
     return value
 
 
-# A pre-built image is Flash client mode: Flash provisions it as a Serverless
-# endpoint and preserves its native FastAPI routes (/health and /synthesize).
-somali_tts = Endpoint(
+class PrebuiltHttpEndpoint(Endpoint):
+    """Expose a pre-built HTTP image to Flash's deployment manifest builder."""
+
+    @property
+    def is_client(self) -> bool:
+        # ``Endpoint(image=...)`` is normally a direct client.  This service
+        # is a deployed load-balanced worker, declared by the route below.
+        return False
+
+
+# Declaring one route makes Flash emit a load-balanced resource.  The worker
+# itself is the supplied image, which serves its native FastAPI routes.
+somali_tts = PrebuiltHttpEndpoint(
     name="cosyvoice-somali",
     image=IMAGE,
     gpu=GpuGroup.AMPERE_24,
@@ -29,11 +39,20 @@ somali_tts = Endpoint(
     env={
         "HF_TOKEN": required_env("HF_TOKEN"),
         "HF_MODEL_REPO": MODEL_REPO,
+        # Runpod mounts the endpoint's network volume here.  This keeps the
+        # downloaded Hugging Face model across serverless scale-to-zero.
+        "MODEL_DIR": "/runpod-volume/models/somali",
+        "PORT": "8000",
+        "PORT_HEALTH": "8000",
     },
     template=PodTemplate(
-        # Runpod stores the VCCR username/password as a registry credential;
-        # Flash needs its Runpod credential ID, never the password itself.
-        containerRegistryAuthId=required_env("RUNPOD_CONTAINER_REGISTRY_AUTH_ID"),
         containerDiskInGb=20,
+        ports="8000/http",
     ),
 )
+
+
+@somali_tts.get('/_flash-deployment-marker')
+async def flash_deployment_marker():
+    """Declare the load-balanced Flash resource; the custom image owns HTTP."""
+    return {'status': 'configured'}

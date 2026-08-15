@@ -41,6 +41,16 @@ class ServerlessTests(unittest.TestCase):
             asyncio.run(call())
         self.assertEqual(error.exception.status_code, 422)
 
+    def test_runpod_ping_reports_loading_then_ready(self):
+        original_model = somali_api.state['model']
+        try:
+            somali_api.state['model'] = None
+            self.assertEqual(somali_api.ping().status_code, 204)
+            somali_api.state['model'] = FakeModel()
+            self.assertEqual(somali_api.ping().status_code, 200)
+        finally:
+            somali_api.state['model'] = original_model
+
     def test_model_bootstrap_downloads_once_then_reuses_persistent_model(self):
         with tempfile.TemporaryDirectory() as temporary_directory:
             model_dir = Path(temporary_directory) / 'data' / 'models' / 'somali'

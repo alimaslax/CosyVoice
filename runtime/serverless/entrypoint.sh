@@ -3,6 +3,10 @@ set -euo pipefail
 
 export NUMBA_CACHE_DIR="${NUMBA_CACHE_DIR:-/data/cache/numba}"
 export MPLCONFIGDIR="${MPLCONFIGDIR:-/data/cache/matplotlib}"
+# Runpod's worker launcher may provide its own PYTHONPATH.  Preserve it, but
+# prepend the vendored CosyVoice sources so `cosyvoice.flow` can import the
+# sibling Matcha-TTS package during model construction.
+export PYTHONPATH="/app:/app/third_party/Matcha-TTS:${PYTHONPATH:-}"
 export TOKENIZERS_PARALLELISM=false
 mkdir -p "${NUMBA_CACHE_DIR}" "${MPLCONFIGDIR}"
 
