@@ -8,6 +8,7 @@ omegaconf==2.3.0
 onnxruntime-gpu==1.18.0
 openai-whisper==20231117
 pyarrow==18.1.0
+pyworld==0.3.4
 scipy==1.13.1
 soundfile==0.12.1
 torchaudio==2.3.1
