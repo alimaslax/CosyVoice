@@ -12,5 +12,9 @@ mkdir -p "${NUMBA_CACHE_DIR}" "${MPLCONFIGDIR}"
 
 echo "[somali-entrypoint] starting model-cache bootstrap" >&2
 python /app/runtime/serverless/bootstrap_model.py
+if [[ "${RUNPOD_QUEUE_MODE:-0}" == "1" ]]; then
+  echo "[somali-entrypoint] model cache bootstrap complete; starting Runpod queue handler" >&2
+  exec python /app/runtime/serverless/queue_handler.py
+fi
 echo "[somali-entrypoint] model cache bootstrap complete; starting FastAPI on port ${PORT:-8000}" >&2
 exec uvicorn runtime.serverless.somali_api:app --host 0.0.0.0 --port "${PORT:-8000}"
