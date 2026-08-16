@@ -42,8 +42,6 @@ COPY asset/somali_pace_prompts /app/asset/somali_pace_prompts
 COPY runtime/serverless /app/runtime/serverless
 
 EXPOSE 8000
-ENTRYPOINT ["python", "/app/runtime/serverless/runpod_queue_entry.py"]
-# Do not inherit vLLM's serving CMD.  Runpod supplies it as arguments to the
-# ENTRYPOINT, and the entrypoint intentionally execs supplied arguments.
-# An empty CMD makes it bootstrap this CosyVoice worker instead.
-CMD []
+# Queue workers launch the Docker CMD.  Do not use an ENTRYPOINT here: the
+# Runpod worker runtime must execute this exact Python process.
+CMD ["python", "-u", "/app/runtime/serverless/runpod_queue_entry.py"]
