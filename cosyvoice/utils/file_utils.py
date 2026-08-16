@@ -16,6 +16,9 @@
 
 import os
 import json
+import shutil
+import uuid
+from pathlib import Path
 import torch
 import torchaudio
 import logging
@@ -89,9 +92,55 @@ def convert_onnx_to_trt(trt_model, trt_kwargs, onnx_model, fp16):
 
 
 # NOTE do not support bistream inference as only speech token embedding/head is kept
+_VLLM_EXPORT_MARKER = '.cosyvoice-vllm-export-ready'
+_VLLM_EXPORT_FORMAT = 1
+
+
+def _file_fingerprint(path):
+    """Return inexpensive source-checkpoint metadata for the export marker."""
+    stat = Path(path).stat()
+    return {'size': stat.st_size, 'mtime_ns': stat.st_mtime_ns}
+
+
+def vllm_export_is_ready(model_path):
+    """Return whether ``model_path`` is a complete CosyVoice vLLM export.
+
+    An interrupted ``save_pretrained`` leaves a directory behind.  vLLM then
+    blocks or fails much later while trying to load that partial directory, so
+    existence alone must never be used as the cache-validity signal.
+    """
+    model_path = Path(model_path)
+    marker = model_path / _VLLM_EXPORT_MARKER
+    config_path = model_path / 'config.json'
+    if not marker.is_file() or not config_path.is_file():
+        return False
+    try:
+        export_metadata = json.loads(marker.read_text(encoding='utf-8'))
+        config = json.loads(config_path.read_text(encoding='utf-8'))
+        source_llm = model_path.parent / 'llm.pt'
+        source_matches = (export_metadata.get('format') == _VLLM_EXPORT_FORMAT
+                          and export_metadata.get('source_llm') == _file_fingerprint(source_llm))
+    except (OSError, json.JSONDecodeError):
+        return False
+    architectures = config.get('architectures', [])
+    has_custom_model = 'CosyVoice2ForCausalLM' in architectures
+    has_weights = any(path.is_file() and path.stat().st_size > 0
+                      for path in model_path.glob('*.safetensors'))
+    return source_matches and has_custom_model and has_weights
+
+
 def export_cosyvoice2_vllm(model, model_path, device):
-    if os.path.exists(model_path):
+    """Export a complete vLLM cache atomically, replacing partial exports."""
+    model_path = Path(model_path)
+    if vllm_export_is_ready(model_path):
+        logging.info('using validated vLLM export cache at %s', model_path)
         return
+
+    # Keep the staging directory beside the final cache so the final rename is
+    # atomic on the mounted network volume.
+    staging_path = model_path.parent / '.{}.staging-{}'.format(model_path.name, uuid.uuid4().hex)
+    shutil.rmtree(staging_path, ignore_errors=True)
+    logging.warning('building vLLM export cache at %s (replacing incomplete cache if present)', model_path)
 
     dtype = torch.bfloat16
     # lm_head
@@ -110,9 +159,31 @@ def export_cosyvoice2_vllm(model, model_path, device):
     model.llm.model.config.vocab_size = model.speech_embedding.num_embeddings
     model.llm.model.config.tie_word_embeddings = False
     model.llm.model.config.use_bias = use_bias
-    model.llm.model.save_pretrained(model_path)
-    if use_bias is True:
-        os.system('sed -i s@Qwen2ForCausalLM@CosyVoice2ForCausalLM@g {}/config.json'.format(os.path.abspath(model_path)))
-    model.llm.model.config.vocab_size = tmp_vocab_size
-    model.llm.model.config.tie_word_embeddings = tmp_tie_embedding
-    model.llm.model.set_input_embeddings(embed_tokens)
+    try:
+        model.llm.model.save_pretrained(staging_path)
+        config_path = staging_path / 'config.json'
+        config = json.loads(config_path.read_text(encoding='utf-8'))
+        # Avoid a shell edit: it is brittle on network mounts and obscures an
+        # incomplete export when it fails.
+        if use_bias is True:
+            config['architectures'] = ['CosyVoice2ForCausalLM']
+            config_path.write_text(json.dumps(config, indent=2) + '\n', encoding='utf-8')
+        marker_metadata = {
+            'format': _VLLM_EXPORT_FORMAT,
+            'source_llm': _file_fingerprint(model_path.parent / 'llm.pt'),
+        }
+        (staging_path / _VLLM_EXPORT_MARKER).write_text(
+            json.dumps(marker_metadata, sort_keys=True) + '\n', encoding='utf-8')
+        if not vllm_export_is_ready(staging_path):
+            raise RuntimeError('vLLM export validation failed for {}'.format(staging_path))
+        if model_path.exists():
+            shutil.rmtree(model_path)
+        staging_path.replace(model_path)
+        logging.info('vLLM export cache committed at %s', model_path)
+    except Exception:
+        shutil.rmtree(staging_path, ignore_errors=True)
+        raise
+    finally:
+        model.llm.model.config.vocab_size = tmp_vocab_size
+        model.llm.model.config.tie_word_embeddings = tmp_tie_embedding
+        model.llm.model.set_input_embeddings(embed_tokens)

@@ -16,6 +16,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+# This file is intentionally created only in the vLLM image.  The loader uses
+# it as a non-configurable runtime identity check: setting COSYVOICE_BACKEND to
+# torch in this image produces invalid audio because its PyTorch/CUDA stack is
+# not the control runtime.
+RUN touch /etc/cosyvoice-vllm-runtime
 COPY runtime/serverless/requirements.vllm.txt /tmp/requirements.vllm.txt
 # vLLM v0.11.0 supplies torch 2.8. Whisper's legacy build imports
 # pkg_resources, so retain the last compatible setuptools release. Install

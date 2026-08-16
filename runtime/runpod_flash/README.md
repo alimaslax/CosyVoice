@@ -36,11 +36,20 @@ but each fresh worker must populate its ephemeral model cache.
 `flash deploy` applies the Python configuration above. It is the command to
 use for future changes rather than manually editing the Runpod UI.
 
-The vLLM build is tagged `0.3.0-vllm`; keep `0.2.3` deployed separately as a
-rollback until its synthesis benchmark is better.
+The vLLM build is tagged `0.3.2-vllm`; it validates and atomically commits
+`MODEL_DIR/vllm` before accepting jobs. An old, partial, or checkpoint-mismatched
+export is rebuilt in a staging directory and replaced only after validation.
+The vLLM image rejects `COSYVOICE_BACKEND=torch`; keep `0.2.3` deployed
+separately as an audio-quality control until the end-to-end synthesis benchmark
+is better.
 
 For the queue endpoint, submit a job from the repository root:
 
 ```bash
 ./scripts/runpod_tts.sh medium "Qoraalka Soomaaliga halkan geli." output.wav
 ```
+
+Treat completion only as transport success. Check the WAV duration with
+`ffprobe`, listen to it, and compare it with a PyTorch-control WAV generated
+from the same text and pace. Record synthesis seconds divided by generated
+audio seconds (RTF); queue/cold-start time is reported separately.

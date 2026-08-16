@@ -8,7 +8,8 @@ from runpod_flash.core.resources.template import PodTemplate
 
 
 # vLLM experiment image. The 0.2.3 PyTorch image stays deployed as rollback.
-IMAGE = "ghcr.io/alimaslax/cosyvoice-somali:0.3.0-vllm"
+# 0.3.2 adds a hard runtime guard so this image cannot use the PyTorch loader.
+IMAGE = "ghcr.io/alimaslax/cosyvoice-somali:0.3.2-vllm"
 MODEL_REPO = "lewenberg/somali-punctuated-paced-20260802"
 
 

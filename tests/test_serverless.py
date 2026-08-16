@@ -9,6 +9,7 @@ import torch
 from cosyvoice.cli.somali_pace import PACE_PRESETS, get_prompt_path
 from runtime.serverless import somali_api
 from runtime.serverless import bootstrap_model
+from cosyvoice.utils.file_utils import vllm_export_is_ready
 
 
 class FakeModel:
@@ -72,3 +73,21 @@ class ServerlessTests(unittest.TestCase):
                 self.assertEqual(download.call_count, 1)
                 bootstrap_model.main()
                 self.assertEqual(download.call_count, 1)
+
+    def test_vllm_export_requires_completion_marker_custom_model_and_weights(self):
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            export_dir = Path(temporary_directory) / 'vllm'
+            export_dir.mkdir()
+            (export_dir.parent / 'llm.pt').write_bytes(b'source-weights')
+            (export_dir / 'config.json').write_text('{"architectures": ["CosyVoice2ForCausalLM"]}')
+            (export_dir / 'model.safetensors').write_bytes(b'weights')
+            self.assertFalse(vllm_export_is_ready(export_dir))
+            (export_dir / '.cosyvoice-vllm-export-ready').write_text(
+                '{"format": 1, "source_llm": {"size": 14, "mtime_ns": %d}}\n'
+                % (export_dir.parent / 'llm.pt').stat().st_mtime_ns)
+            self.assertTrue(vllm_export_is_ready(export_dir))
+            (export_dir.parent / 'llm.pt').write_bytes(b'new-source-weights')
+            self.assertFalse(vllm_export_is_ready(export_dir))
+            (export_dir.parent / 'llm.pt').write_bytes(b'source-weights')
+            (export_dir / 'model.safetensors').write_bytes(b'')
+            self.assertFalse(vllm_export_is_ready(export_dir))
