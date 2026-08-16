@@ -3,6 +3,7 @@
 import os
 
 from runpod_flash import Endpoint, GpuType
+from runpod_flash.core.resources.network_volume import NetworkVolume
 from runpod_flash.core.resources.template import PodTemplate
 
 
@@ -18,6 +19,9 @@ def required_env(name: str) -> str:
     return value
 
 
+MODEL_VOLUME_ID = required_env("RUNPOD_NETWORK_VOLUME_ID")
+
+
 # This is Flash's pre-built queue-worker pattern. The container owns the
 # Runpod queue handler; Flash owns the deployment, GPU selection, and scaling.
 somali_tts = Endpoint(
@@ -29,6 +33,11 @@ somali_tts = Endpoint(
     workers=(0, 1),
     idle_timeout=5,
     max_concurrency=1,
+    # Existing 50 GB EUR-IS-3 volume with the downloaded Somali checkpoint.
+    volume=NetworkVolume(
+        id=MODEL_VOLUME_ID,
+        name="cosyvoice-somali-model-cache",
+    ),
     env={
         "HF_TOKEN": required_env("HF_TOKEN"),
         "HF_MODEL_REPO": MODEL_REPO,
