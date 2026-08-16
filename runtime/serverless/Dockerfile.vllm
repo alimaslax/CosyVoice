@@ -40,10 +40,11 @@ COPY cosyvoice /app/cosyvoice
 COPY third_party/Matcha-TTS /app/third_party/Matcha-TTS
 COPY asset/somali_pace_prompts /app/asset/somali_pace_prompts
 COPY runtime/serverless /app/runtime/serverless
+COPY runtime/serverless/pyworld.py /app/pyworld.py
 
 EXPOSE 8000
 # The vLLM base image defines its own API-server ENTRYPOINT.  Clear it so the
 # Runpod queue worker executes the command below rather than vLLM's server.
 ENTRYPOINT []
 # Queue workers launch the Docker CMD.
-CMD ["python", "-u", "/app/runtime/serverless/runpod_queue_entry.py"]
+CMD ["python3", "-u", "/app/runtime/serverless/runpod_queue_entry.py"]
