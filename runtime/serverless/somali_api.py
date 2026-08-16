@@ -2,7 +2,6 @@
 
 import asyncio
 import io
-import os
 import time
 from contextlib import asynccontextmanager
 
@@ -12,11 +11,10 @@ from fastapi import FastAPI, HTTPException
 from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
-from cosyvoice.cli.cosyvoice import AutoModel
 from cosyvoice.cli.somali_pace import PACE_PRESETS, get_prompt_path
+from runtime.serverless.model_loader import BACKEND, MODEL_DIR, load_model
 
 
-MODEL_DIR = os.environ.get('MODEL_DIR', '/data/models/somali')
 state = {'model': None, 'lock': asyncio.Lock()}
 
 
@@ -45,10 +43,10 @@ async def lifespan(_: FastAPI):
     if not torch.cuda.is_available():
         log('fatal: CUDA GPU is unavailable')
         raise RuntimeError('A CUDA GPU is required for this service')
-    log('CUDA available: {}; loading FP16 model from {}'.format(torch.cuda.get_device_name(0), MODEL_DIR))
+    log('CUDA available: {}; loading {} model from {}'.format(torch.cuda.get_device_name(0), BACKEND, MODEL_DIR))
     started = time.monotonic()
     try:
-        state['model'] = AutoModel(model_dir=MODEL_DIR, fp16=True)
+        state['model'] = load_model()
     except Exception as error:
         log('fatal model-load error after {:.1f}s: {!r}'.format(time.monotonic() - started, error))
         raise

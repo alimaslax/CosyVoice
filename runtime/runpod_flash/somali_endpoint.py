@@ -6,7 +6,8 @@ from runpod_flash import Endpoint, GpuType
 from runpod_flash.core.resources.template import PodTemplate
 
 
-IMAGE = "ghcr.io/alimaslax/cosyvoice-somali:0.2.3"
+# vLLM experiment image. The 0.2.3 PyTorch image stays deployed as rollback.
+IMAGE = "ghcr.io/alimaslax/cosyvoice-somali:0.3.0-vllm"
 MODEL_REPO = "lewenberg/somali-punctuated-paced-20260802"
 
 
@@ -38,6 +39,7 @@ somali_tts = Endpoint(
         "PORT_HEALTH": "8000",
         # Runpod queue-mode handler used by scripts/runpod_tts.sh.
         "RUNPOD_QUEUE_MODE": "1",
+        "COSYVOICE_BACKEND": "vllm",
     },
     template=PodTemplate(
         containerDiskInGb=20,

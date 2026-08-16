@@ -7,6 +7,14 @@ on:
         description: Image tag to publish
         required: true
         default: "0.1.7"
+      runtime:
+        description: Container runtime to build
+        required: true
+        type: choice
+        options:
+          - torch
+          - vllm
+        default: torch
 
 permissions:
   contents: read
@@ -31,7 +39,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          file: runtime/serverless/Dockerfile.l40s
+          file: runtime/serverless/Dockerfile.${{ inputs.runtime == 'vllm' && 'vllm' || 'l40s' }}
           push: true
           tags: ${{ env.IMAGE }}:${{ inputs.tag }}
           labels: org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}

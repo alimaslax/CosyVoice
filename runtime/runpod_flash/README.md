@@ -4,9 +4,10 @@ This Flash project is the deployment configuration for the public GHCR Somali
 CosyVoice image. It does not rebuild the image.
 
 It creates a separate queue-based endpoint named `cosyvoice-somali-4090` that
-is pinned to an RTX 4090. It allows one concurrent request, starts from zero,
-and stops five seconds after the last job. The configuration lives in
-`somali_endpoint.py`; the Runpod UI is not the source of truth.
+is pinned to an RTX 4090. It runs the same Somali checkpoint through vLLM,
+allows one concurrent request, starts from zero, and stops five seconds after
+the last job. The configuration lives in `somali_endpoint.py`; the Runpod UI
+is not the source of truth.
 
 ## One-time prerequisite
 
@@ -29,13 +30,14 @@ but each fresh worker must populate its ephemeral model cache.
 ## Deploy
 
 ```bash
-cd runtime/runpod_flash
-flash build
-flash deploy
+./scripts/deploy_runpod_vllm.sh
 ```
 
 `flash deploy` applies the Python configuration above. It is the command to
 use for future changes rather than manually editing the Runpod UI.
+
+The vLLM build is tagged `0.3.0-vllm`; keep `0.2.3` deployed separately as a
+rollback until its synthesis benchmark is better.
 
 For the queue endpoint, submit a job from the repository root:
 
