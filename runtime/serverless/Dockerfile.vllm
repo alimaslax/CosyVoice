@@ -42,6 +42,8 @@ COPY asset/somali_pace_prompts /app/asset/somali_pace_prompts
 COPY runtime/serverless /app/runtime/serverless
 
 EXPOSE 8000
-# Queue workers launch the Docker CMD.  Do not use an ENTRYPOINT here: the
-# Runpod worker runtime must execute this exact Python process.
+# The vLLM base image defines its own API-server ENTRYPOINT.  Clear it so the
+# Runpod queue worker executes the command below rather than vLLM's server.
+ENTRYPOINT []
+# Queue workers launch the Docker CMD.
 CMD ["python", "-u", "/app/runtime/serverless/runpod_queue_entry.py"]
