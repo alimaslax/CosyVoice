@@ -4,9 +4,6 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 ENV_FILE="${ROOT_DIR}/.env"
-# Default to the dedicated RTX 4090 endpoint. Set RUNPOD_ENDPOINT_ID to
-# override this per call without changing the script.
-ENDPOINT_ID="${RUNPOD_ENDPOINT_ID:-rkaset6oi127wh}"
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
   echo "Usage: $0 <slow|medium|fast> \"text\" [output.wav]" >&2
@@ -27,6 +24,8 @@ fi
 # shellcheck disable=SC1090
 source "$ENV_FILE"
 : "${RUNPOD_API_KEY:?RUNPOD_API_KEY is required in .env}"
+# Use the endpoint set in .env, while allowing an explicit shell override.
+ENDPOINT_ID="${RUNPOD_ENDPOINT_ID:?RUNPOD_ENDPOINT_ID is required in .env}"
 
 command -v curl >/dev/null || { echo "curl is required" >&2; exit 69; }
 command -v jq >/dev/null || { echo "jq is required (brew install jq)" >&2; exit 69; }

@@ -44,3 +44,7 @@ COPY runtime/serverless /app/runtime/serverless
 RUN chmod +x /app/runtime/serverless/entrypoint.sh
 EXPOSE 8000
 ENTRYPOINT ["/app/runtime/serverless/entrypoint.sh"]
+# Do not inherit vLLM's serving CMD.  Runpod supplies it as arguments to the
+# ENTRYPOINT, and the entrypoint intentionally execs supplied arguments.
+# An empty CMD makes it bootstrap this CosyVoice worker instead.
+CMD []
