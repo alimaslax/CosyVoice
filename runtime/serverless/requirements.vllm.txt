@@ -9,7 +9,6 @@ librosa==0.10.2
 numpy==1.26.4
 omegaconf==2.3.0
 onnxruntime-gpu==1.18.0
-openai-whisper==20231117
 pyarrow==18.1.0
 pyworld==0.3.4
 scipy==1.13.1
@@ -17,6 +16,7 @@ soundfile==0.12.1
 transformers==4.57.1
 x-transformers==2.11.24
 wetext==0.0.4
-huggingface_hub==0.30.2
+# Required by transformers 4.57.1 (and compatible with vLLM 0.11).
+huggingface_hub==0.34.0
 tqdm==4.67.1
 runpod==1.7.13

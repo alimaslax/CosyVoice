@@ -17,9 +17,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 COPY runtime/serverless/requirements.vllm.txt /tmp/requirements.vllm.txt
-# vLLM v0.11.0 is built with torch 2.7.x. Install only the matching audio
-# companion without allowing pip to replace vLLM's torch distribution.
-RUN pip install --no-cache-dir --no-deps torchaudio==2.7.1 \
+# vLLM v0.11.0 supplies torch 2.8. Install only matching companions without
+# allowing pip to replace its CUDA runtime. Whisper's triton<3 constraint is
+# intentionally skipped: inference only needs its feature/tokenizer helpers,
+# while vLLM must retain its bundled Triton.
+RUN pip install --no-cache-dir --no-deps \
+      torchaudio==2.8.0 \
+      openai-whisper==20231117 \
     && pip install --no-cache-dir --no-build-isolation -r /tmp/requirements.vllm.txt
 
 RUN pip install --no-cache-dir \

@@ -21,7 +21,7 @@ def required_env(name: str) -> str:
 # This is Flash's pre-built queue-worker pattern. The container owns the
 # Runpod queue handler; Flash owns the deployment, GPU selection, and scaling.
 somali_tts = Endpoint(
-    name="cosyvoice-somali-4090",
+    name="cosyvoice-somali-4090-vllm",
     image=IMAGE,
     # Do not use a mixed 24 GB group: that can assign the slower L4, A5000,
     # or 3090.  This endpoint is pinned to the 24 GB RTX 4090.
