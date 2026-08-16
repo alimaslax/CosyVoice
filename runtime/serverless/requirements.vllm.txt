@@ -10,7 +10,9 @@ numpy==1.26.4
 omegaconf==2.3.0
 onnxruntime-gpu==1.18.0
 pyarrow==18.1.0
-pyworld==0.3.4
+# pyworld is used only by the training dataset pipeline. Its 0.3.4 extension
+# cannot build against the NumPy 2 ABI supplied by the vLLM image and is not
+# required by serverless synthesis.
 scipy==1.13.1
 soundfile==0.12.1
 transformers==4.57.1
